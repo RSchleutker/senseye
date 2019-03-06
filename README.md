@@ -18,13 +18,13 @@ Additionally you need the proper hardware:
 
 ### Installing
 
-To get started download the `senseye-x.x-py3-none-any.whl` file from the `dist/` folder and install the package by running
+To get started download the `senseye-x.x-py3-none-any.whl` file from the `dist/` folder and install the library by running
 
 ```
 pip install senseye-x.x-py3-none-any.whl
 ```
 
-on both, the Raspberry Pi used to read out the sensors and the central computer. This will add the `senseye` package to your python libraries. Alternatively, if you want to use the code for your own customized project download the whole source cdoe and use it for development.
+on both, the Raspberry Pi used to read out the sensors and the central computer. This will add the `senseye` library to your python libraries. Alternatively, if you want to use the code for your own customized project download the whole source cdoe and use it for development.
 
 ### Setting up
 
@@ -47,7 +47,7 @@ from senseye.app import ServerApp
 from senseye.mailer import Mailer
 from sqlalchemy import create_engine
 
-ENGINE = create_engine('sqlite:///test.db')
+ENGINE = create_engine('sqlite:///senseye.db')
 MAILER = Mailer(server = '<email server>',
                 name = '<email name>',
                 password = '<email password>',
@@ -57,4 +57,4 @@ server_app = ServerApp(ENGINE, MAILER, intervall = 5)
 server_app.run()
 ```
 
-This automatically creates an SQLite database called `test.db` with an User called `User` and password `password`. This login data can be used for the dashboard. The script will now connect to all Raspberry Pis in the local network every `5` minutes.
+This automatically creates an SQLite database called `senseye.db` with an User called `User` and password `password`. This login data can be used for the dashboard. The script will now connect to all Raspberry Pis in the local network defined in the database every `5` minutes.
