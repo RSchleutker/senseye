@@ -1,0 +1,10 @@
+
+\.spyproject/
+
+senseye\.egg-info/
+
+build/
+
+senseye/__pycache__/
+
+__pycache__/
