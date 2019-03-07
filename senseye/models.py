@@ -23,7 +23,7 @@ Base = declarative_base()
 class User(Base):
     """
     """
-    __tablename__ = 'users'
+    __tablename__ = 'user'
 
     username = Column(String(64), primary_key = True)
     email = Column(String(64), nullable = False)

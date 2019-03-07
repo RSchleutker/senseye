@@ -73,18 +73,21 @@ class ServerApp:
     def create_custom_user(self):
 
         with self.__session() as session:
-            user = User(username = 'Username',
-                        email = 'user@user.de',
-                        group = 'luschnig')
+            if len(session.query(User).all()) == 0:
+                usr = User(username = 'Username',
+                           email = 'user@user.de',
+                           group = 'luschnig')
 
-            session.add(user)
+                usr.set_password('password')
 
-            try:
-                session.commit()
-            except Exception as excep:
-                print(excep)
-            else:
-                print('Successfully added user!')
+                session.add(usr)
+
+                try:
+                    session.commit()
+                except Exception as excep:
+                    pass
+                else:
+                    print('Successfully added user!')
 
     def __measurement_in_range(self, measurement):
         """Checks whether a measurement is within the currently set range of
@@ -188,6 +191,10 @@ class ServerApp:
         # check the measurements and if needed send an alert email.
         for measurement in measurements:
             with self.__session() as session:
+                rg = session.query(Range).get((measurement.device,
+                                               measurement.parameter))
+                if not rg and measurement.parameter != 'battery':
+                    continue
                 try:
                     session.add(measurement)
                     session.commit()
@@ -228,13 +235,6 @@ class ClientApp:
     def __init__(self, port = 50000, mode = 'production'):
         self.port = port
         self.mode = mode
-
-    @setter.mode
-    def mode(self, mode):
-        if not mode in ['production', 'mockup']:
-            raise ValueError('mode must be either "production" or "mockup"!')
-        else:
-            self.mode = mode
 
     def read_sensors(self, sensors):
         measurements = []
