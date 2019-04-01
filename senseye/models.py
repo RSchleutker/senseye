@@ -143,7 +143,7 @@ class Sensor(Base):
         """
 
         scanner = Scanner().withDelegate(ScanDelegate([self.mac]))
-        devices = scanner.scan(30.0, passive = True)
+        devices = scanner.scan(10.0, passive = True)
         measures = scanner.delegate.measures
         measurement = self.extract_data(measures)
         #print("measures",measurement)
