@@ -8,7 +8,7 @@ Created on Mon Feb 25 16:45:11 2019
 import sys, os, struct
 from ctypes import (CDLL,get_errno)
 from ctypes.util import find_library
-#from socket import socket, AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI, SOL_HCI, HCI_FILTER, SHUT_RDWR
+from socket import socket, AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI, SOL_HCI, HCI_FILTER, SHUT_RDWR
 
 from datetime import datetime
 from random import randint
@@ -16,6 +16,8 @@ from random import randint
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Float
 from sqlalchemy.ext.declarative import declarative_base
 from werkzeug.security import generate_password_hash, check_password_hash
+
+from bluepy.btle import Scanner, DefaultDelegate
 
 
 Base = declarative_base()
@@ -97,20 +99,20 @@ class Sensor(Base):
         :return: Measurement.
         """
         if not data:
-            return Measurement(device = self.device,
+            return [Measurement(device = self.device,
                                sensor = self,
                                parameter = None,
                                time = datetime.now(),
-                               value = None)
-
-        battery = int.from_bytes(data[22:23], byteorder = 'little')
-        temp = int.from_bytes(data[28:26:-1], byteorder = 'little', signed = True)
-        humidity = int.from_bytes(data[30:28:-1], byteorder = 'little')
+                               value = None)]
+        print("data",data[self.mac])
+        battery = data[self.mac]['battery']
+        temp = data[self.mac]['temp']
+        humidity = data[self.mac]['humidity']
 
         measures = {'battery':(battery-70)/30*100,
                     'temperature':temp/10,
-                    'humidity':humidity/10}
-
+	            'humidity':humidity/10}
+        print("measures_obj:", measures)
         # Return a list of measurements.
         return [Measurement(device = self.device,
                             sensor = self.id,
@@ -140,78 +142,26 @@ class Sensor(Base):
                  raw byte data to the `Sensor.extract_data()` static method.
         """
 
-        if not os.geteuid() == 0:
-            raise RuntimeError("Must be called as root!")
+        scanner = Scanner().withDelegate(ScanDelegate([self.mac]))
+        devices = scanner.scan(30.0, passive = True)
+        measures = scanner.delegate.measures
+        measurement = self.extract_data(measures)
+        #print("measures",measurement)
+        return measurement
 
-        btlib = find_library("bluetooth")
-        if not btlib:
-            raise ImportError("Can't find library: bluetooth")
+class ScanDelegate(DefaultDelegate):
+    def __init__(self, addresses):
+        DefaultDelegate.__init__(self)
+        self.addresses_to_scan = addresses 
+        self.measures = {}
 
-        bluez = CDLL(btlib, use_errno = True)
-
-        dev_id = bluez.hci_get_route(None)
-
-        sock = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)
-        sock.bind((dev_id,))
-
-        err = bluez.hci_le_set_scan_parameters(sock.fileno(),
-                                               0, 0x10, 0x10, 0, 0, 1000);
-
-        if err < 0:
-            #sock.shutdown(SHUT_RDWR)
-            sock.close()
-            raise Exception("Set scan parameters failed")
-            # occurs when scanning is still enabled from previous call
-
-        # allows LE advertising events
-        hci_filter = struct.pack(
-                "<IQH",
-                0x00000010,
-                0x4000000000000000,
-                0
-                )
-        sock.setsockopt(SOL_HCI, HCI_FILTER, hci_filter)
-
-        err = bluez.hci_le_set_scan_enable(
-                sock.fileno(),
-                1,  # 1 - turn on;  0 - turn off
-                0, # 0-filtering disabled, 1-filter out duplicates
-                1000  # timeout
-                )
-
-        if err < 0:
-            errnum = get_errno()
-            raise Exception("{} {}".format(
-                    errno.errorcode[errnum],
-                    os.strerror(errnum)
-                    ))
-        tries = 0
-
-        while True:
-            data = sock.recv(1024)
-            # print bluetooth address from LE Advert. packet
-            mac = ':'.join("{0:02x}".format(x) for x in data[12:6:-1])
-            #Address from advert packet is id, then read and stop
-            if mac == self.mac:
-                measurements = Sensor.extract_data(data)
-                break
-            #Prevent while to run forever.
-            if tries > 20:
-                measurements = Sensor.extract_data(None)
-                break
-            tries += 1
-
-        err = bluez.hci_le_set_scan_enable(
-                sock.fileno(),
-                0,  # 1 - turn on;  0 - turn off
-                0, # 0-filtering disabled, 1-filter out duplicates
-                1000  # timeout
-                )
-
-        #sock.shutdown(SHUT_RDWR)
-        sock.close()
-
-        return measurements
+    def handleDiscovery(self, dev, isNewDev, isNewData):
+        if (dev.addr in self.addresses_to_scan):
+            for (atype, d, value) in dev.getScanData():
+               if atype == 255:
+                   self.measures[dev.addr] = {"battery":int(value[6:8],16),
+                                         "temp":int(value[16:20],16),
+                                          "humidity":int(value[20:24],16)}
 
 class RaspberryPi(Base):
     """

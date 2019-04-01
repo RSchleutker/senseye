@@ -254,6 +254,7 @@ class ClientApp:
         GPIO.setup(27, GPIO.OUT)
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as c_socket:
+	    c_socket.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
             c_socket.bind(('', self.port))
 
             while True:
