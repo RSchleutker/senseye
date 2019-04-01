@@ -40,7 +40,7 @@ class ServerApp:
 
     @contextmanager
     def __session(self):
-        session = scoped_session(sessionmaker(bind = self.engine))
+        session = scoped_session(sessionmaker(bind = self.engine, expire_on_commit=False))
         yield session
         try:
             session.close()
