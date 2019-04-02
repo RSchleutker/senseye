@@ -159,9 +159,12 @@ class ScanDelegate(DefaultDelegate):
         if (dev.addr in self.addresses_to_scan):
             for (atype, d, value) in dev.getScanData():
                if atype == 255:
+		   temp = int(value[16:20],16)
+                   if temp & (1<<(16-1)):
+                       temp -= 1 << 16
                    self.measures[dev.addr] = {"battery":int(value[6:8],16),
-                                         "temp":int(value[16:20],16),
-                                          "humidity":int(value[20:24],16)}
+                                              "temp":temp,
+                                              "humidity":int(value[20:24],16)}
 
 class RaspberryPi(Base):
     """
